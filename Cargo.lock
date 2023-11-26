@@ -3,14 +3,6 @@
 version = 3
 
 [[package]]
-name = "RPG-game"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3110,6 +3102,14 @@ dependencies = [
  "bitflags 2.4.1",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "rpg_game"
+version = "0.0.1-a.1"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
 ]
 
 [[package]]
