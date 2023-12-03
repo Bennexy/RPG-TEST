@@ -1,5 +1,14 @@
-use bevy::{prelude::*, input::mouse::MouseWheel};
 use crate::game_plugins::player::Player;
+use bevy::{input::mouse::MouseWheel, prelude::*};
+
+pub struct ScaleableWorldViewPlugin;
+
+impl Plugin for ScaleableWorldViewPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup)
+            .add_systems(Update, change_world_scale);
+    }
+}
 
 #[derive(Component)]
 pub struct WorldView {
@@ -8,9 +17,7 @@ pub struct WorldView {
 
 impl Default for WorldView {
     fn default() -> Self {
-        Self {
-            zoom_factor: 1.0,
-        }
+        Self { zoom_factor: 1.0 }
     }
 }
 
@@ -40,11 +47,13 @@ impl WorldView {
 }
 
 fn setup(mut commands: Commands) {
-
     let mut camera: Camera2dBundle = Camera2dBundle::default();
     let world_view = WorldView::default();
-}
 
+    camera.projection.scaling_mode = world_view.get_zoom_state();
+
+    commands.spawn((camera, world_view));
+}
 
 pub fn change_world_scale(
     mut world_view: Query<

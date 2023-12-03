@@ -6,8 +6,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Startup, setup)
+        app.add_systems(Startup, setup)
             .add_systems(Update, character_movement);
     }
 }
@@ -42,14 +41,18 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn character_movement(
-    mut player: Query<(&mut Transform, &Player), With<Player>>,
-    mut world_view: Query<&mut Transform, With<WorldView>>,
+pub fn character_movement(
+    mut player: Query<(&mut Transform, &Player), (With<Player>, Without<WorldView>)>,
+    mut world_view: Query<&mut Transform, (With<WorldView>, Without<Player>)>,
     input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let (mut tansform_player, player) = player.single_mut();
-    let mut tansform_world_view = world_view.single_mut();
+    // let mut tansform_world_view = world_view;
+
+    for wv in &mut world_view {
+        info!("{:?}", wv);
+    }
     // for (mut transform, player) in &mut player.into {
     let movement_amount = player.speed * time.delta_seconds();
 
@@ -81,6 +84,6 @@ fn character_movement(
 
     tansform_player.translation.y += move_y;
     tansform_player.translation.x += move_x;
-    tansform_world_view.translation.y += move_y;
-    tansform_world_view.translation.x += move_x;
+    // tansform_world_view.translation.y += move_y;
+    // tansform_world_view.translation.x += move_x;
 }
