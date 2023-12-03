@@ -48,11 +48,11 @@ pub fn character_movement(
     time: Res<Time>,
 ) {
     let (mut tansform_player, player) = player.single_mut();
-    // let mut tansform_world_view = world_view;
+    let mut tansform_world_view = world_view.single_mut();
 
-    for wv in &mut world_view {
-        info!("{:?}", wv);
-    }
+    // for wv in &mut world_view {
+    //     info!("{:?}", wv);
+    // }
     // for (mut transform, player) in &mut player.into {
     let movement_amount = player.speed * time.delta_seconds();
 
@@ -84,6 +84,6 @@ pub fn character_movement(
 
     tansform_player.translation.y += move_y;
     tansform_player.translation.x += move_x;
-    // tansform_world_view.translation.y += move_y;
-    // tansform_world_view.translation.x += move_x;
+    tansform_world_view.translation.y += move_y;
+    tansform_world_view.translation.x += move_x;
 }
