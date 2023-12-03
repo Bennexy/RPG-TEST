@@ -1,69 +1,36 @@
-use bevy::{input::common_conditions::input_toggle_active, prelude::*, window::close_on_esc};
+use bevy::{input::{mouse::MouseWheel, common_conditions::input_toggle_active}, prelude::*, window::close_on_esc};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 // local mods
+
 mod pig;
+mod game_plugins;
 mod ui;
+mod zoom;
+
+use zoom::{WorldView, change_world_scale};
+use game_plugins::player::PlayerPlugin;
 
 // local uses
 use pig::PigPlugin;
+use game_plugins::{tree::TreePlugin, player::{Player, setup as spawn_player}};
 use ui::GameUI;
 
-#[derive(Component)]
-pub struct Player {
-    pub speed: f32,
-}
 
-enum ZoomState {
-    MIN,
-    MID,
-    MAX,
-}
 
-#[derive(Component)]
-pub struct WorldView {
-    zoom_state: ZoomState,
-}
-
-impl WorldView {
-    pub fn get_zoom_state(&self) -> bevy::render::camera::ScalingMode {
-        match self.zoom_state {
-            ZoomState::MIN => SCALING_MODE_MIN,
-            ZoomState::MID => SCALING_MODE_MID,
-            ZoomState::MAX => SCALING_MODE_MAX,
-        }
-    }
-
-    pub fn increase_zoom_state(&mut self) {
-        self.zoom_state = match self.zoom_state {
-            ZoomState::MIN => ZoomState::MID,
-            ZoomState::MID => ZoomState::MAX,
-            ZoomState::MAX => ZoomState::MAX,
-        }
-    }
-    pub fn decrease_zoom_state(&mut self) {
-        self.zoom_state = match self.zoom_state {
-            ZoomState::MIN => ZoomState::MIN,
-            ZoomState::MID => ZoomState::MIN,
-            ZoomState::MAX => ZoomState::MID,
-        }
-    }
-}
 
 #[derive(Resource)]
 pub struct Money(pub f32);
 
-impl Default for WorldView {
-    fn default() -> Self {
-        Self {
-            zoom_state: ZoomState::MIN,
-        }
-    }
+#[derive(Resource, States, Debug, Hash, PartialEq, Eq, Clone, Reflect)]
+pub enum GameState {
+    MENU,
+    GAME,
 }
 
-impl Default for Player {
+impl Default for GameState {
     fn default() -> Self {
-        Player { speed: 100.0 }
+        Self::GAME
     }
 }
 
@@ -73,31 +40,18 @@ impl Default for Money {
     }
 }
 
-const SCALING_MODE_MIN: bevy::render::camera::ScalingMode =
-    bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 256.0,
-        min_height: 144.0,
-    };
-const SCALING_MODE_MAX: bevy::render::camera::ScalingMode =
-    bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 1024.0,
-        min_height: 576.0,
-    };
-const SCALING_MODE_MID: bevy::render::camera::ScalingMode =
-    bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 512.0,
-        min_height: 288.0,
-    };
-
 fn main() {
     App::new()
         .init_resource::<Money>()
+        .add_state::<GameState>()
+        .init_resource::<State<GameState>>()
+        .init_resource::<NextState<GameState>>()
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Logic Farming Rougelike".into(),
+                        title: "AutoRPG".into(),
                         resolution: (1280.0, 620.0).into(),
                         resizable: false,
                         ..default()
@@ -109,16 +63,20 @@ fn main() {
         .add_plugins(
             WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F2)),
         )
-        .add_plugins((PigPlugin, GameUI))
+        .add_plugins((PlayerPlugin, TreePlugin))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (character_movement, close_on_esc, change_world_scale),
+            (
+                close_on_esc,
+                change_world_scale,
+                change_game_state,
+            ),
         )
         .run();
 }
 
-fn setup(mut commands: Commands, asserts_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let mut camera: Camera2dBundle = Camera2dBundle::default();
     let world_view = WorldView::default();
 
@@ -126,115 +84,58 @@ fn setup(mut commands: Commands, asserts_server: Res<AssetServer>) {
 
     commands.spawn((camera, world_view));
 
-    let texture = asserts_server.load("character.png");
-    commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3 { z: 1., ..default() },
-                ..Default::default()
-            },
-            texture,
-            ..default()
-        },
-        Player::default(),
-        Name::new("Player"),
-    ));
+    // let background_image= asset_server.load("background.png");
+    // commands
+    //     .spawn(SpriteBundle {
+    //         texture: materials.add(background_image),
+    //         ..Default::default()
+    //     });
 
-    let texture = asserts_server.load("tree2.png");
-    commands.spawn((SpriteBundle {
-        transform: Transform {
-            translation: Vec3 {
-                z: 0.5,
-                x: 128.,
-                y: 0.,
-            },
-            scale: Vec3 {
-                x: 0.05,
-                y: 0.05,
-                z: 0.,
-            },
-            ..Default::default()
-        },
-        texture,
-        ..default()
-    },));
-
-    let texture = asserts_server.load("tree.png");
-    commands.spawn((SpriteBundle {
-        transform: Transform {
-            translation: Vec3 {
-                z: 0.5,
-                x: -128.,
-                y: 0.,
-            },
-            ..Default::default()
-        },
-        texture,
-        ..default()
-    },));
+    // let texture = asset_server.load("images/player-v1.png"); //character.png");
+    // commands.spawn((
+    //     SpriteBundle {
+    //         transform: Transform {
+    //             translation: Vec3 {
+    //                 z: 1.0,
+    //                 ..default()
+    //             },
+    //             ..Default::default()
+    //         },
+    //         texture,
+    //         ..default()
+    //     },
+    //     Player::default(),
+    //     Name::new("Player"),
+    // ));
 }
 
-fn character_movement(
-    mut player: Query<(&mut Transform, &Player), (Without<WorldView>, With<Player>)>,
-    mut world_view: Query<&mut Transform, (Without<Player>, With<WorldView>)>,
-    input: Res<Input<KeyCode>>,
-    time: Res<Time>,
-) {
-    let (mut tansform_player, player) = player.single_mut();
-    let mut tansform_world_view = world_view.single_mut();
-    // for (mut transform, player) in &mut player.into {
-    let movement_amount = player.speed * time.delta_seconds();
 
-    let mut move_x: f32 = 0.;
-    let mut move_y: f32 = 0.;
 
-    if input.pressed(KeyCode::W) {
-        move_y += movement_amount;
-    }
-    if input.pressed(KeyCode::S) {
-        move_y -= movement_amount;
-    }
-    if input.pressed(KeyCode::D) {
-        move_x += movement_amount;
-    }
-    if input.pressed(KeyCode::A) {
-        move_x -= movement_amount;
-    }
-
-    if move_x != 0. && move_y != 0. {
-        move_x /= 2.;
-        move_y /= 2.;
-    }
-
-    if input.pressed(KeyCode::ShiftLeft) || input.pressed(KeyCode::ShiftRight) {
-        move_x *= 2.;
-        move_y *= 2.;
-    }
-
-    tansform_player.translation.y += move_y;
-    tansform_player.translation.x += move_x;
-    tansform_world_view.translation.y += move_y;
-    tansform_world_view.translation.x += move_x;
-}
-
-fn change_world_scale(
-    mut world_view: Query<
-        (&mut OrthographicProjection, &mut WorldView),
-        (Without<Player>, With<WorldView>),
-    >,
+fn change_game_state(
+    game_state: ResMut<State<GameState>>,
+    mut next_state: ResMut<NextState<GameState>>,
     input: Res<Input<KeyCode>>,
 ) {
-    if input.pressed(KeyCode::ControlLeft) || input.pressed(KeyCode::ControlLeft) {
-        // info!("in control loop");
-        let (mut projection, mut world_view) = world_view.single_mut();
-        // buttons.pressed(MouseButton::Other(2))
-        if input.just_pressed(KeyCode::Minus) {
-            world_view.increase_zoom_state();
-            projection.scaling_mode = world_view.get_zoom_state();
-        };
-        if input.just_pressed(KeyCode::Plus) {
-            world_view.decrease_zoom_state();
-            projection.scaling_mode = world_view.get_zoom_state();
-        };
+    if !input.just_pressed(KeyCode::M) {
+        return;
     }
+
+    // let mut game_state: &GameState = game_state.get();
+
+    let new = match game_state.get() {
+        GameState::GAME => GameState::MENU,
+        GameState::MENU => GameState::GAME,
+    };
+    next_state.set(new);
+    // if game_state.get() == &new {return};
+
+    // let boxed = Box::new(new);
+    // let boxed2 = Box::new(boxed.as_reflect());
+
+    // match game_state.set(boxed2) {
+    //     Ok(_) => info!("successfully set new game_state"),
+    //     Err(e) => error!("cant set new game state {:?}", e)
+    // }
+
+    info!("game state {:?}", game_state);
 }
