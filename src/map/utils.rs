@@ -35,10 +35,10 @@ pub fn world_to_chunks_tile((x, y): (f32, f32)) -> (IVec2, TilePos) {
     );
 }
 
-pub fn chunks_to_world(chunk_position: IVec2, tile_position: TilePos) -> (i32, i32) {
+pub fn chunks_to_world(chunk_position: IVec2, tile_position: TilePos) -> (f32, f32) {
     (
-        (CHUNK_SIZE.x as i32 * chunk_position.x * TILE_SIZE.x as i32) + (tile_position.x as i32 * TILE_SIZE.x as i32),
-        (CHUNK_SIZE.y as i32 * chunk_position.y * TILE_SIZE.y as i32) + (tile_position.y as i32 * TILE_SIZE.y as i32),
+        (CHUNK_SIZE.x as i32 * chunk_position.x * TILE_SIZE.x as i32) as f32 + (tile_position.x as i32 * TILE_SIZE.x as i32) as f32,
+        (CHUNK_SIZE.y as i32 * chunk_position.y * TILE_SIZE.y as i32) as f32 + (tile_position.y as i32 * TILE_SIZE.y as i32) as f32,
     )
 }
 

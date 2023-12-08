@@ -131,8 +131,10 @@ fn spawn_chunks(
     let tilemap_entity = commands.spawn_empty().insert(TileMap).id();
     let mut tile_storage = TileStorage::empty(CHUNK_SIZE.into());
     let image_handles = vec![
-        asset_server.load("tiles/grass/grass_32x32_0.png"),
+        asset_server.load("tiles/deep-water.png"),
         asset_server.load("tiles/water.png"),
+        asset_server.load("tiles/beach.png"),
+        asset_server.load("tiles/grass/grass_32x32_0.png"),
     ];
     let texture_vec = TilemapTexture::Vector(image_handles);
 
@@ -143,11 +145,21 @@ fn spawn_chunks(
         for y in 0..CHUNK_SIZE.y {
             let tile_pos = TilePos { x, y };
 
-            let (world_x, world_y) = chunks_to_world(chunk_position, tile_pos);
+            // let (world_x, world_y) = chunks_to_world(chunk_position, tile_pos);
+            let (perl_x, perl_y) = world_to_tiles(chunks_to_world(chunk_position, tile_pos));
 
             let perlin_value =
-                perlin.get([world_x as f64 / NOISE_SCALE, world_y as f64 / NOISE_SCALE]);
-            let texture_index: usize = if perlin_value > 0.3 { 1 } else { 0 };
+                perlin.get([perl_x as f64 / NOISE_SCALE, perl_y as f64 / NOISE_SCALE]);
+
+            let texture_index: usize = if perlin_value > 0.6 {
+                0
+            } else if perlin_value > 0.3 {
+                1
+            } else if perlin_value > 0.2 {
+                2
+            } else {
+                3
+            };
 
             let tile_entity = commands
                 .spawn(TileBundle {
@@ -221,7 +233,6 @@ fn despawn_chunks_out_of_range_of_camera(
             allowed_ivec2s.push(chunk);
         }
     }
-
 
     for val in chunk_manager.spawned_tiles.clone() {
         if !allowed_ivec2s.contains(&val) {
