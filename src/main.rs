@@ -50,7 +50,7 @@ impl RngJesus {
 #[derive(Component)]
 pub struct Tile;
 
-#[derive(Default, Debug, Resource)]
+#[derive(Default, Debug, Resource, Clone)]
 struct ChunkManager {
     pub spawned_tiles: HashSet<IVec2>,
     pub spawned_chunks: HashMap<IVec2, Entity>,
@@ -144,11 +144,10 @@ fn spawn_chunks(
             let tile_pos = TilePos { x, y };
 
             let (world_x, world_y) = chunks_to_world(chunk_position, tile_pos);
-            // info!("x: {}-{}, y: {}-{}", x, world_x, y,world_y);
 
             let perlin_value =
                 perlin.get([world_x as f64 / NOISE_SCALE, world_y as f64 / NOISE_SCALE]);
-            let texture_index: usize = if perlin_value > 0.3 { 1 } else { 1 };
+            let texture_index: usize = if perlin_value > 0.3 { 1 } else { 0 };
 
             let tile_entity = commands
                 .spawn(TileBundle {
@@ -197,7 +196,6 @@ fn spawn_chunks_around_camera(
     for x in chunk_x - RENDER_CHUNK_SIZE.x as i32..chunk_x + RENDER_CHUNK_SIZE.x as i32 {
         for y in chunk_y - RENDER_CHUNK_SIZE.y as i32..chunk_y + RENDER_CHUNK_SIZE.y as i32 {
             let chunk = IVec2::new(x, y);
-            // info!("{} {}", x, y);
 
             if !chunk_manager.contains(&chunk) {
                 let entity = spawn_chunks(&mut commands, &asset_server, &seed, chunk);
@@ -210,7 +208,6 @@ fn spawn_chunks_around_camera(
 fn despawn_chunks_out_of_range_of_camera(
     mut commands: Commands,
     mut chunk_manager: ResMut<ChunkManager>,
-    tiles_query: Query<(Entity, &Transform), With<Tile>>,
     player_pos: Query<&mut Transform, (With<Player>, Without<Tile>)>,
 ) {
     let player_pos = player_pos.single();
@@ -225,14 +222,14 @@ fn despawn_chunks_out_of_range_of_camera(
         }
     }
 
-    info!("{:?}", allowed_ivec2s);
-    for (entity, transform) in tiles_query.iter() {
-        let (x, y) = world_to_chunks((transform.translation.x, transform.translation.y));
-        let vec = IVec2::new(x, y);
 
-        if !allowed_ivec2s.contains(&vec) {
-            commands.entity(entity).despawn_recursive();
-            chunk_manager.remove_chunk(&vec);
+    for val in chunk_manager.spawned_tiles.clone() {
+        if !allowed_ivec2s.contains(&val) {
+            let entity = chunk_manager.remove_chunk(&val);
+            match entity {
+                Some(val) => commands.entity(val).despawn_recursive(),
+                None => error!("Tried to delete chunk {:?}- failed", val),
+            }
         }
     }
 }
