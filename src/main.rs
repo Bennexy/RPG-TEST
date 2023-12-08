@@ -53,24 +53,24 @@ pub struct Tile;
 #[derive(Default, Debug, Resource)]
 struct ChunkManager {
     pub spawned_tiles: HashSet<IVec2>,
-    // pub spawned_chunks: HashMap<IVec2, Entity>,
+    pub spawned_chunks: HashMap<IVec2, Entity>,
 }
 
-// impl ChunkManager {
-//     fn add_new_chunk(&mut self, vec: IVec2, entity: Entity) {
-//         self.spawned_tiles.insert(vec);
-//         self.spawned_chunks.insert(vec, entity);
-//     }
+impl ChunkManager {
+    fn add_new_chunk(&mut self, vec: IVec2, entity: Entity) {
+        self.spawned_tiles.insert(vec);
+        self.spawned_chunks.insert(vec, entity);
+    }
 
-//     fn remove_chunk(&mut self, vec: &IVec2) -> Option<Entity> {
-//         self.spawned_tiles.remove(vec);
-//         self.spawned_chunks.remove(vec)
-//     }
+    fn remove_chunk(&mut self, vec: &IVec2) -> Option<Entity> {
+        self.spawned_tiles.remove(vec);
+        self.spawned_chunks.remove(vec)
+    }
 
-//     fn contains(&self, vec: &IVec2) -> bool {
-//         self.spawned_tiles.contains(vec)
-//     }
-// }
+    fn contains(&self, vec: &IVec2) -> bool {
+        self.spawned_tiles.contains(vec)
+    }
+}
 
 #[derive(Component)]
 struct TileMap;
@@ -112,7 +112,7 @@ fn main() {
                 // change_world_scale,
                 // character_movement,
                 spawn_chunks_around_camera,
-                // despawn_chunks_out_of_range_of_camera,
+                despawn_chunks_out_of_range_of_camera,
                 //     despawn_outofrange_chunks,
             ),
         )
@@ -125,7 +125,7 @@ fn spawn_chunks(
     asset_server: &AssetServer,
     seed: &RngJesus,
     chunk_position: IVec2,
-) {
+) -> Entity {
     // chunk_manager.spawned_chunks.insert(IVec2::new(x, y));
 
     let tilemap_entity = commands.spawn_empty().insert(TileMap).id();
@@ -138,13 +138,13 @@ fn spawn_chunks(
 
     let perlin = Perlin::new(seed.seed as u32);
 
+    // TODO: Improvement -> player should be in the middle of the chunk not at the bottom
     for x in 0..CHUNK_SIZE.x {
         for y in 0..CHUNK_SIZE.y {
             let tile_pos = TilePos { x, y };
 
-
             let (world_x, world_y) = chunks_to_world(chunk_position, tile_pos);
-            info!("x: {}-{}, y: {}-{}", x, world_x, y,world_y);
+            // info!("x: {}-{}, y: {}-{}", x, world_x, y,world_y);
 
             let perlin_value =
                 perlin.get([world_x as f64 / NOISE_SCALE, world_y as f64 / NOISE_SCALE]);
@@ -168,15 +168,20 @@ fn spawn_chunks(
         chunk_position.y as f32 * CHUNK_SIZE.y as f32 * TILE_SIZE.y,
         0.0,
     ));
-    commands.entity(tilemap_entity).insert(TilemapBundle {
-        grid_size: TILE_SIZE.into(),
-        size: CHUNK_SIZE.into(),
-        storage: tile_storage,
-        texture: texture_vec,
-        tile_size: TILE_PIXEL_SIZE,
-        transform: transform,
-        ..Default::default()
-    });
+    commands
+        .entity(tilemap_entity)
+        .insert(TilemapBundle {
+            grid_size: TILE_SIZE.into(),
+            size: CHUNK_SIZE.into(),
+            storage: tile_storage,
+            texture: texture_vec,
+            tile_size: TILE_PIXEL_SIZE,
+            transform: transform,
+            ..Default::default()
+        })
+        .insert(Tile);
+
+    return tilemap_entity;
 }
 
 fn spawn_chunks_around_camera(
@@ -189,24 +194,45 @@ fn spawn_chunks_around_camera(
     let player_pos = player_pos.single();
     let (chunk_x, chunk_y) = world_to_chunks((player_pos.translation.x, player_pos.translation.y));
 
-    // info!("x:{}-chunk_x:{}, y:{}-chunk_y:{}", plsayer_pos.translation.x, chunk_x, player_pos.translation.y, chunk_y);
-    // let chunk = IVec2::new(chunk_x, chunk_y);
+    for x in chunk_x - RENDER_CHUNK_SIZE.x as i32..chunk_x + RENDER_CHUNK_SIZE.x as i32 {
+        for y in chunk_y - RENDER_CHUNK_SIZE.y as i32..chunk_y + RENDER_CHUNK_SIZE.y as i32 {
+            let chunk = IVec2::new(x, y);
+            // info!("{} {}", x, y);
 
-    // spawn_chunks(&mut commands, &asset_server, &seed, chunk);
-    // chunk_manager.spawned_tiles.insert(chunk); //, tile_map_entity);
+            if !chunk_manager.contains(&chunk) {
+                let entity = spawn_chunks(&mut commands, &asset_server, &seed, chunk);
+                chunk_manager.add_new_chunk(chunk, entity); //, tile_map_entity);
+            }
+        }
+    }
+}
+
+fn despawn_chunks_out_of_range_of_camera(
+    mut commands: Commands,
+    mut chunk_manager: ResMut<ChunkManager>,
+    tiles_query: Query<(Entity, &Transform), With<Tile>>,
+    player_pos: Query<&mut Transform, (With<Player>, Without<Tile>)>,
+) {
+    let player_pos = player_pos.single();
+    let (chunk_x, chunk_y) = world_to_chunks((player_pos.translation.x, player_pos.translation.y));
+
+    let mut allowed_ivec2s: Vec<IVec2> = Vec::new();
 
     for x in chunk_x - RENDER_CHUNK_SIZE.x as i32..chunk_x + RENDER_CHUNK_SIZE.x as i32 {
         for y in chunk_y - RENDER_CHUNK_SIZE.y as i32..chunk_y + RENDER_CHUNK_SIZE.y as i32 {
             let chunk = IVec2::new(x, y);
+            allowed_ivec2s.push(chunk);
+        }
+    }
 
-            // info!("new chunk check: {} {:?}", chunk, chunk_manager.spawned_tiles);
-            if !chunk_manager.spawned_tiles.contains(&chunk) {
-                // info!("new chunk: {} {}", chunk.x, chunk.y);
-                // chunk_manager.spawned_chunks.insert(chunk);
+    info!("{:?}", allowed_ivec2s);
+    for (entity, transform) in tiles_query.iter() {
+        let (x, y) = world_to_chunks((transform.translation.x, transform.translation.y));
+        let vec = IVec2::new(x, y);
 
-                spawn_chunks(&mut commands, &asset_server, &seed, chunk);
-                chunk_manager.spawned_tiles.insert(chunk); //, tile_map_entity);
-            }
+        if !allowed_ivec2s.contains(&vec) {
+            commands.entity(entity).despawn_recursive();
+            chunk_manager.remove_chunk(&vec);
         }
     }
 }
@@ -214,18 +240,18 @@ fn spawn_chunks_around_camera(
 // fn despawn_chunks_out_of_range_of_camera(
 //     mut commands: Commands,
 //     mut chunk_manager: ResMut<ChunkManager>,
+//     mut tiles_query: Query<(Entity, &Transform), With<Tile>>,
 //     player_pos: Query<&mut Transform, With<Player>>,
 // ) {
-//     let player_pos = player_pos.single().translation;
-//     let (chunk_x, chunk_y) = world_to_chunks((player_pos.x, player_pos.y));
-//     let player_pos = IVec2::new(player_pos.x.floor() as i32, player_pos.y.floor() as i32);
+//     let player_pos = player_pos.single();
+//     let (chunk_x, chunk_y) = world_to_chunks((player_pos.translation.x, player_pos.translation.y));
 
 //     let mut allowed_ivec2s: Vec<IVec2> = Vec::new();
-//     for x in player_pos.x - RENDER_CHUNK_SIZE.x as i32..player_pos.x + RENDER_CHUNK_SIZE.x as i32 {
-//         for y in
-//             player_pos.y - RENDER_CHUNK_SIZE.y as i32..player_pos.y + RENDER_CHUNK_SIZE.y as i32
-//         {
-//             allowed_ivec2s.push(IVec2 { x, y });
+
+//     for x in chunk_x - RENDER_CHUNK_SIZE.x as i32..=chunk_x + RENDER_CHUNK_SIZE.x as i32 {
+//         for y in chunk_y - RENDER_CHUNK_SIZE.y as i32..=chunk_y + RENDER_CHUNK_SIZE.y as i32 {
+//             let chunk = IVec2::new(x, y);
+//             allowed_ivec2s.push(chunk);
 //         }
 //     }
 //     let values_to_remove: Vec<_> = chunk_manager
@@ -238,8 +264,8 @@ fn spawn_chunks_around_camera(
 //         .collect();
 
 //     for value in values_to_remove.iter() {
-//         // let entity = chunk_manager.remove_chunk(&value).unwrap();
-//         // commands.entity(entity).despawn_recursive();
+//         let entity = chunk_manager.remove_chunk(&value).unwrap();
+//         commands.entity(entity).despawn_recursive();
 //     }
 // }
 

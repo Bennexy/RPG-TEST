@@ -8,8 +8,8 @@ pub const TILE_PIXEL_SIZE: TilemapTileSize = TilemapTileSize { x: 32.0, y: 32.0 
 pub const CHUNK_SIZE: UVec2 = UVec2 { x: 3, y: 3 };
 // Render chunk sizes are set to 4 render chunks per user specified chunk.
 pub const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
-    x: 4,
-    y: 4
+    x: 2,
+    y: 2
 };
 
 pub const NOISE_SCALE: f64 = 25.;
