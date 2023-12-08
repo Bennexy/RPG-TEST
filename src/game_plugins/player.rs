@@ -81,6 +81,10 @@ pub fn character_movement(
         move_x *= 2.;
         move_y *= 2.;
     }
+    if input.pressed(KeyCode::ControlLeft) || input.pressed(KeyCode::ControlRight) {
+        move_x *= 4.;
+        move_y *= 4.;
+    }
 
     tansform_player.translation.y += move_y;
     tansform_player.translation.x += move_x;

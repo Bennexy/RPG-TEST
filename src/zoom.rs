@@ -1,4 +1,4 @@
-use crate::game_plugins::player::Player;
+use crate::{game_plugins::player::Player, consts::MAX_ZOOM};
 use bevy::{input::mouse::MouseWheel, prelude::*};
 
 pub struct ScaleableWorldViewPlugin;
@@ -6,7 +6,7 @@ pub struct ScaleableWorldViewPlugin;
 impl Plugin for ScaleableWorldViewPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
-            .add_systems(Update, change_world_scale);
+        .add_systems(Update, change_world_scale);
     }
 }
 
@@ -38,8 +38,8 @@ impl WorldView {
     }
 
     pub fn zoom_out(&mut self) {
-        if self.zoom_factor >= 16. {
-            self.zoom_factor = 16.;
+        if self.zoom_factor >= MAX_ZOOM {
+            self.zoom_factor = MAX_ZOOM;
             return;
         }
         self.zoom_factor *= 2.0;
@@ -63,6 +63,7 @@ pub fn change_world_scale(
     input: Res<Input<KeyCode>>,
     mut scroll_evr: EventReader<MouseWheel>,
 ) {
+
     if input.pressed(KeyCode::ControlLeft) || input.pressed(KeyCode::ControlLeft) {
         // info!("in control loop");
         let (mut projection, mut world_view) = world_view.single_mut();

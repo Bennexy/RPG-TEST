@@ -1,143 +1,606 @@
+use crate::consts::*;
+use crate::game_plugins::player::Player;
+use bevy::diagnostic::DiagnosticsStore;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
+use bevy_ecs_tilemap::tiles::TilePos;
+use rpg_game::game_plugins::player;
+use rpg_game::map::utils::world_to_chunks;
+use rpg_game::map::utils::world_to_chunks_tile;
+use rpg_game::map::utils::world_to_tiles;
 
-use crate::pig::PigCount;
-use crate::{GameState, Money};
+// use crate::pig::PigCount;
+// use crate::{GameState, Money};
 pub struct GameUI;
 
+/// Marker to find the container entity so we can show/hide the FPS counter
 #[derive(Component)]
-pub struct MoneyText;
+struct FpsRoot;
+
+/// Marker to find the text entity so we can update it
+#[derive(Component)]
+struct FpsText;
 
 #[derive(Component)]
-pub struct PigParentText;
+struct PlayerCordsRoot;
 
 #[derive(Component)]
-pub struct Menu;
+struct PlayerCordsText;
+
+#[derive(Component)]
+struct PlayerChunksRoot;
+#[derive(Component)]
+struct PlayerChunksText;
+
+#[derive(Component)]
+struct PlayerTilesRoot;
+#[derive(Component)]
+struct PlayerTilesText;
+
+#[derive(Component)]
+struct PlayerChunkTilesRoot;
+#[derive(Component)]
+struct PlayerChunkTilesText;
 
 impl Plugin for GameUI {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_game_ui).add_systems(
-            Update,
-            (update_money_ui,  update_open_menu),
-            // (update_money_ui, update_pig_count_ui, update_open_menu),
-        );
+        app.add_plugins(FrameTimeDiagnosticsPlugin::default())
+            .add_systems(
+                Startup,
+                (
+                    setup_fps_counter,
+                    setup_player_cords,
+                    setup_player_chunks,
+                    setup_player_tiles,
+                    setup_player_chunk_tiles,
+                ),
+            )
+            .add_systems(
+                Update,
+                (
+                    fps_text_update_system,
+                    player_cords_text_update_system,
+                    fps_counter_showhide,
+                ),
+            );
     }
 }
 
-fn spawn_game_ui(mut commands: Commands, asset_loader: Res<AssetServer>) {
-    let font = asset_loader.load("fonts/Dragon_Fire_font.otf");
-    let font2 = asset_loader.load("fonts/Dragon_Fire_font.otf");
-
-    commands
+fn setup_player_tiles(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
         .spawn((
+            PlayerTilesRoot,
             NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
                 style: Style {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(10.0),
-                    align_items: AlignItems::Center,
-                    padding: UiRect::all(Val::Px(10.0)),
-                    ..default()
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(16.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
                 },
-                background_color: Color::BLACK.into(),
-                ..default()
+                ..Default::default()
             },
-            Name::new("UI Root"),
         ))
-        .with_children(|commands| {
-            commands.spawn((
-                TextBundle {
-                    style: Style {
-                        margin: UiRect {
-                            left: Val::Px(50.),
+        .id();
+    // create our text
+    let text_cords = commands
+        .spawn((
+            PlayerTilesText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "PlayerTiles: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
                             ..default()
                         },
-                        ..default()
                     },
-                    text: Text::from_section(
-                        "Money!",
-                        TextStyle {
-                            font,
-                            font_size: 32.0,
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
                             color: Color::WHITE,
-                        },
-                    ),
-                    ..default()
-                },
-                MoneyText,
-            ));
-        })
-        .with_children(|commands| {
-            commands.spawn((
-                TextBundle {
-                    style: Style {
-                        margin: UiRect {
-                            left: Val::Px(50.),
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
                             ..default()
                         },
-                        ..default()
                     },
-                    text: Text::from_section(
-                        "Pigs Spawned!",
-                        TextStyle {
-                            font: font2,
-                            font_size: 32.0,
-                            color: Color::WHITE,
-                        },
-                    ),
-                    ..default()
-                },
-                PigParentText,
-            ));
-        });
-
-    commands.spawn((
-        NodeBundle {
-            style: Style {
-                width: Val::Percent(30.0),
-                height: Val::Percent(90.0),
-                align_items: AlignItems::Center,
-                top: Val::Percent(10.),
-                border: UiRect {
-                    right: Val::Percent(0.5),
-                    left: Val::Percent(0.5),
-                    top: Val::Percent(0.5),
-                    bottom: Val::Percent(0.5),
-                },
-                ..default()
+                ]),
+                ..Default::default()
             },
-            visibility: Visibility::Hidden,
-            background_color: Color::BLACK.into(),
-            ..default()
-        },
-        Menu,
-        Name::new("Menu"),
-    ));
+        ))
+        .id();
+
+    commands.entity(root).push_children(&[text_cords]);
 }
 
-fn update_money_ui(mut texts: Query<&mut Text, With<MoneyText>>, money: Res<Money>) {
-    for mut text in &mut texts {
-        text.sections[0].value = format!("Money: ${:?}", money.0);
-    }
-}
-fn update_pig_count_ui(mut texts: Query<&mut Text, With<PigParentText>>, pig_count: Res<PigCount>) {
-    for mut text in &mut texts {
-        text.sections[0].value = format!("Pigs Spawned: {:?}", pig_count.0);
-    }
+fn setup_player_chunks(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
+        .spawn((
+            PlayerChunksRoot,
+            NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(11.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    // create our text
+    let text_chunks = commands
+        .spawn((
+            PlayerChunksText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "PlayerChunks: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            },
+        ))
+        .id();
+    commands.entity(root).push_children(&[text_chunks]);
 }
 
-fn update_open_menu(
-    mut menu: Query<&mut Visibility, With<Menu>>,
-    game_state: Res<State<GameState>>,
+fn setup_player_cords(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
+        .spawn((
+            PlayerCordsRoot,
+            NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(6.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .id();
+    // create our text
+    let text_cords = commands
+        .spawn((
+            PlayerCordsText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "PlayerCords: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    commands.entity(root).push_children(&[text_cords]);
+}
+
+fn setup_player_chunk_tiles(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
+        .spawn((
+            PlayerChunkTilesRoot,
+            NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(21.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .id();
+    // create our text
+    let text_cords = commands
+        .spawn((
+            PlayerChunkTilesText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "PlayerChunk-tiles: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    commands.entity(root).push_children(&[text_cords]);
+}
+
+fn player_cords_text_update_system(
+    player_cords: Query<&Transform, With<Player>>,
+    mut query: Query<
+        &mut Text,
+        (
+            With<PlayerCordsText>,
+            Without<PlayerChunksText>,
+            Without<PlayerTilesText>,
+            Without<PlayerChunkTilesText>,
+        ),
+    >,
+    mut query_chunks: Query<
+        &mut Text,
+        (
+            With<PlayerChunksText>,
+            Without<PlayerCordsText>,
+            Without<PlayerTilesText>,
+            Without<PlayerChunkTilesText>,
+        ),
+    >,
+    mut query_tiles: Query<
+        &mut Text,
+        (
+            With<PlayerTilesText>,
+            Without<PlayerCordsText>,
+            Without<PlayerChunksText>,
+            Without<PlayerChunkTilesText>,
+        ),
+    >,
+
+    mut query_chunk_tiles: Query<
+        &mut Text,
+        (
+            With<PlayerChunkTilesText>,
+            Without<PlayerCordsText>,
+            Without<PlayerChunksText>,
+            Without<PlayerTilesText>,
+        ),
+    >,
 ) {
-    let mut menu = menu.single_mut();
+    let player_cords = player_cords.single();
+    let mut text = query.single_mut();
+    text.sections[1].value = format!(
+        "x: {:.2}, y: {:.2}",
+        player_cords.translation.x, player_cords.translation.y
+    )
+    .into();
+    text.sections[1].style.color = Color::WHITE;
 
-    match game_state.get() {
-        GameState::GAME => match *menu {
-            Visibility::Hidden => (),
-            _ => *menu = Visibility::Hidden,
-        },
-        GameState::MENU => match *menu {
-            Visibility::Visible => (),
-            _ => *menu = Visibility::Visible,
-        },
+    let mut text = query_chunks.single_mut();
+    let (x, y) = world_to_chunks((player_cords.translation.x, player_cords.translation.y));
+    text.sections[1].value = format!("x: {:.2}, y: {:.2}", x, y).into();
+    text.sections[1].style.color = Color::WHITE;
+
+    let mut text = query_tiles.single_mut();
+    let (x, y) = world_to_tiles((player_cords.translation.x, player_cords.translation.y));
+    text.sections[1].value = format!("x: {:.2}, y: {:.2}", x, y).into();
+    text.sections[1].style.color = Color::WHITE;
+
+    let mut text = query_chunk_tiles.single_mut();
+    let (x, y) = world_to_chunks_tile((player_cords.translation.x, player_cords.translation.y));
+    text.sections[1].value = format!("x: {}, y: {:?}", x, y).into();
+    text.sections[1].style.color = Color::WHITE;
+}
+
+fn setup_fps_counter(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
+        .spawn((
+            FpsRoot,
+            NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(1.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .id();
+    // create our text
+    let text_fps = commands
+        .spawn((
+            FpsText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "FPS: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            },
+        ))
+        .id();
+    commands.entity(root).push_children(&[text_fps]);
+}
+
+fn fps_text_update_system(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
+    for mut text in &mut query {
+        // try to get a "smoothed" FPS value from Bevy
+        if let Some(value) = diagnostics
+            .get(FrameTimeDiagnosticsPlugin::FPS)
+            .and_then(|fps| fps.smoothed())
+        {
+            // Format the number as to leave space for 4 digits, just in case,
+            // right-aligned and rounded. This helps readability when the
+            // number changes rapidly.
+            text.sections[1].value = format!("{value:>4.0}");
+
+            // Let's make it extra fancy by changing the color of the
+            // text according to the FPS value:
+            text.sections[1].style.color = if value >= 120.0 {
+                // Above 120 FPS, use green color
+                Color::rgb(0.0, 1.0, 0.0)
+            } else if value >= 60.0 {
+                // Between 60-120 FPS, gradually transition from yellow to green
+                Color::rgb((1.0 - (value - 60.0) / (120.0 - 60.0)) as f32, 1.0, 0.0)
+            } else if value >= 30.0 {
+                // Between 30-60 FPS, gradually transition from red to yellow
+                Color::rgb(1.0, ((value - 30.0) / (60.0 - 30.0)) as f32, 0.0)
+            } else {
+                // Below 30 FPS, use red color
+                Color::rgb(1.0, 0.0, 0.0)
+            }
+        } else {
+            // display "N/A" if we can't get a FPS measurement
+            // add an extra space to preserve alignment
+            text.sections[1].value = " N/A".into();
+            text.sections[1].style.color = Color::WHITE;
+        }
+    }
+}
+
+/// Toggle the FPS counter when pressing F12
+fn fps_counter_showhide(
+    mut fps_root: Query<
+        &mut Visibility,
+        (
+            With<FpsRoot>,
+            Without<PlayerCordsRoot>,
+            Without<PlayerChunksRoot>,
+            Without<PlayerTilesRoot>,
+            Without<PlayerChunkTilesRoot>,
+        ),
+    >,
+
+    mut player_cords_root: Query<
+        &mut Visibility,
+        (
+            With<PlayerCordsRoot>,
+            Without<PlayerChunksRoot>,
+            Without<PlayerTilesRoot>,
+            Without<PlayerChunkTilesRoot>,
+        ),
+    >,
+    mut query_chunks: Query<
+        &mut Visibility,
+        (
+            With<PlayerChunksRoot>,
+            Without<PlayerCordsRoot>,
+            Without<PlayerTilesRoot>,
+            Without<PlayerChunkTilesRoot>,
+        ),
+    >,
+    mut query_tiles: Query<
+        &mut Visibility,
+        (
+            With<PlayerTilesRoot>,
+            Without<PlayerCordsRoot>,
+            Without<PlayerChunksRoot>,
+            Without<PlayerChunkTilesRoot>,
+        ),
+    >,
+
+    mut query_chunk_tiles: Query<
+        &mut Visibility,
+        (
+            With<PlayerChunkTilesRoot>,
+            Without<PlayerCordsRoot>,
+            Without<PlayerChunksRoot>,
+            Without<PlayerTilesRoot>,
+        ),
+    >,
+    kbd: Res<Input<KeyCode>>,
+) {
+    if kbd.just_pressed(KeyCode::F12) {
+        let mut vis = fps_root.single_mut();
+        *vis = match *vis {
+            Visibility::Hidden => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+        let mut vis = query_chunks.single_mut();
+        *vis = match *vis {
+            Visibility::Hidden => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+
+        let mut vis = player_cords_root.single_mut();
+        *vis = match *vis {
+            Visibility::Hidden => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+
+        let mut vis = query_chunk_tiles.single_mut();
+        *vis = match *vis {
+            Visibility::Hidden => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+
+        let mut vis = query_tiles.single_mut();
+        *vis = match *vis {
+            Visibility::Hidden => Visibility::Visible,
+            _ => Visibility::Hidden,
+        };
+
+
+        // for element in vec![
+        //     query_chunks, player_cords_root, fps_root, query_chunk_tiles, query_tiles
+        // ].iter() {
+        //     let mut vis = element.single_mut();
+        //     *vis = match *vis {
+        //         Visibility::Hidden => Visibility::Visible,
+        //         _ => Visibility::Hidden,
+        //     };
+        // }
+
     }
 }

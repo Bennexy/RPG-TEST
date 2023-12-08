@@ -27,7 +27,7 @@ impl Plugin for TreePlugin {
         app.init_resource::<TreeCount>()
             .init_resource::<GlobalRng>()
             .add_systems(Startup, spawn_trees)
-            .add_systems(Update, (tree_hit))
+            .add_systems(Update, tree_hit)
             .register_type::<Tree>();
     }
 }
@@ -96,6 +96,7 @@ fn tree_hit(
     player_cords_min.y = player_cords_min.y - 20.;
 
     let mut el_count: usize = 0;
+    let mut new_trees: usize = 0;
 
     for (entity, transform, mut tree) in &mut trees {
         let diff = player.translation - transform.translation;
@@ -139,6 +140,7 @@ fn tree_hit(
                             Tree::default(),
                             Name::new("Tree"),
                         ));
+                        new_trees += 1;
                     }
                 });
                 commands.entity(entity).despawn();
@@ -155,7 +157,8 @@ fn tree_hit(
         } //else {println!("no tree here")}
     }
 
-
-    println!("{}", el_count);
+    if new_trees != 0 {
+        info!("spawen {} new trees. Total tree cound:{}", new_trees, el_count);
+    };
 
 }
