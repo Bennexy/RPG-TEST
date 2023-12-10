@@ -1,13 +1,8 @@
-use crate::consts::*;
 use crate::game_plugins::player::Player;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy_ecs_tilemap::tiles::TilePos;
-use rpg_game::game_plugins::player;
-use rpg_game::map::utils::world_to_chunks;
-use rpg_game::map::utils::world_to_chunks_tile;
-use rpg_game::map::utils::world_to_tiles;
+use rpg_game::game_plugins::world_map::utils::{world_to_chunks, world_to_chunks_tile, world_to_tiles};
 
 // use crate::pig::PigCount;
 // use crate::{GameState, Money};

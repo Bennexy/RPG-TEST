@@ -26,7 +26,7 @@ impl Plugin for TreePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TreeCount>()
             .init_resource::<GlobalRng>()
-            .add_systems(Startup, spawn_trees)
+            // .add_systems(Startup, spawn_trees)
             .add_systems(Update, tree_hit)
             .register_type::<Tree>();
     }

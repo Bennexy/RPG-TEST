@@ -48,4 +48,3 @@ pub fn world_to_tiles((x, y): (f32, f32)) -> (i32, i32) {
 
     return (x_tile_count, y_tile_count);
 }
-
