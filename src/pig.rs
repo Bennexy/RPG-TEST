@@ -59,7 +59,7 @@ fn spawn_pig(
     money.0 -= 10.0;
     debug!("Spent $10 on a pig, remaining money: ${:?}", money.0);
 
-    let texture = asset_server.load("pig.png");
+    let texture = asset_server.load("images/pig.png");
 
     commands.entity(parent).with_children(|commands| {
         commands.spawn((

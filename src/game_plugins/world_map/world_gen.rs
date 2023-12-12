@@ -12,25 +12,41 @@ use super::{chunk_gen::spawn_chunks, utils::world_to_chunks};
 
 #[derive(Resource)]
 pub struct RngJesus {
-    pub seed: usize,
+    pub seed: u32,
+    pub seed2: u32,
+    pub biom_seed: u32
 }
 
 impl Default for RngJesus {
     fn default() -> Self {
-        Self {
-            seed: thread_rng().gen(),
-        }
+        // let mut rng = thread_rng();
+        // Self {
+        //     seed: rng.gen(),
+        //     seed2: rng.gen(),
+        //     biom_seed: rng.gen()
+        // };
+
+        Self::new_fixed()
+
     }
 }
 
 impl RngJesus {
     fn new_fixed() -> Self {
-        Self { seed: 1234567890 }
+        let seed: u32 = 1234567890;
+        let seed2: u32 = 2983741234;
+        let biom_seed: u32 = 502389457;
+
+        Self { seed, seed2, biom_seed }
     }
 }
 
 #[derive(Component)]
 pub struct Tile;
+
+
+#[derive(Component)]
+pub struct Chunk;
 
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ChunkManager {
@@ -64,15 +80,12 @@ impl Plugin for WorldGenPlugin {
         app
             .init_resource::<ChunkManager>()
             .init_resource::<RngJesus>()
-            // .insert_resource(ChunkManager::default())
-            // .insert_resource(RngJesus::default())
             // `TilemapRenderSettings` must be added before the `TilemapPlugin`.
             .insert_resource(TilemapRenderSettings {
                 render_chunk_size: RENDER_CHUNK_SIZE,
                 ..Default::default()
             })
             .add_plugins(TilemapPlugin)
-            // .add_systems(Update, (spawn_chunks_around_camera2,));
             .add_systems(
                 Update,
                 (
@@ -95,6 +108,8 @@ pub fn spawn_chunks_around_camera(
     let player_pos = player_pos.single();
     let (chunk_x, chunk_y) = world_to_chunks((player_pos.translation.x, player_pos.translation.y));
 
+
+    // TODO: Improvement -> player should be in the middle of the chunk not at the bottom
     for x in chunk_x - RENDER_CHUNK_SIZE.x as i32..chunk_x + RENDER_CHUNK_SIZE.x as i32 {
         for y in chunk_y - RENDER_CHUNK_SIZE.y as i32..chunk_y + RENDER_CHUNK_SIZE.y as i32 {
             let chunk = IVec2::new(x, y);

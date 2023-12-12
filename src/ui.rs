@@ -1,8 +1,15 @@
+use crate::consts::CHUNK_SIZE;
 use crate::game_plugins::player::Player;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
+use noise::NoiseFn;
+use noise::Perlin;
+use rpg_game::consts::NOISE_SCALE;
+use rpg_game::game_plugins::world_map::chunk_gen::BiomType;
 use rpg_game::game_plugins::world_map::utils::{world_to_chunks, world_to_chunks_tile, world_to_tiles};
+use rpg_game::game_plugins::world_map::world_gen::RngJesus;
+use rpg_game::game_plugins::world_map::chunk_gen::BiomTiles;
 
 // use crate::pig::PigCount;
 // use crate::{GameState, Money};
@@ -37,6 +44,13 @@ struct PlayerChunkTilesRoot;
 #[derive(Component)]
 struct PlayerChunkTilesText;
 
+
+
+#[derive(Component)]
+struct PlayerBiomRoot;
+#[derive(Component)]
+struct PlayerBiomText;
+
 impl Plugin for GameUI {
     fn build(&self, app: &mut App) {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default())
@@ -48,6 +62,7 @@ impl Plugin for GameUI {
                     setup_player_chunks,
                     setup_player_tiles,
                     setup_player_chunk_tiles,
+                    setup_player_biom,
                 ),
             )
             .add_systems(
@@ -333,6 +348,76 @@ fn setup_player_chunk_tiles(mut commands: Commands) {
     commands.entity(root).push_children(&[text_cords]);
 }
 
+
+fn setup_player_biom(mut commands: Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    let root = commands
+        .spawn((
+            PlayerBiomRoot,
+            NodeBundle {
+                // give it a dark background for readability
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
+                // make it "always on top" by setting the Z index to maximum
+                // we want it to be displayed over all other UI
+                z_index: ZIndex::Global(i32::MAX),
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    // position it at the top-right corner
+                    // 1% away from the top window edge
+                    right: Val::Percent(1.),
+                    top: Val::Percent(26.),
+                    // set bottom/left to Auto, so it can be
+                    // automatically sized depending on the text
+                    bottom: Val::Auto,
+                    left: Val::Auto,
+                    // give it some padding for readability
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ))
+        .id();
+    // create our text
+    let text_cords = commands
+        .spawn((
+            PlayerBiomText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "Biom: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            },
+        ))
+        .id();
+
+    commands.entity(root).push_children(&[text_cords]);
+}
+
+
 fn player_cords_text_update_system(
     player_cords: Query<&Transform, With<Player>>,
     mut query: Query<
@@ -342,6 +427,7 @@ fn player_cords_text_update_system(
             Without<PlayerChunksText>,
             Without<PlayerTilesText>,
             Without<PlayerChunkTilesText>,
+            Without<PlayerBiomText>,
         ),
     >,
     mut query_chunks: Query<
@@ -351,6 +437,7 @@ fn player_cords_text_update_system(
             Without<PlayerCordsText>,
             Without<PlayerTilesText>,
             Without<PlayerChunkTilesText>,
+            Without<PlayerBiomText>,
         ),
     >,
     mut query_tiles: Query<
@@ -360,6 +447,7 @@ fn player_cords_text_update_system(
             Without<PlayerCordsText>,
             Without<PlayerChunksText>,
             Without<PlayerChunkTilesText>,
+            Without<PlayerBiomText>,
         ),
     >,
 
@@ -370,6 +458,18 @@ fn player_cords_text_update_system(
             Without<PlayerCordsText>,
             Without<PlayerChunksText>,
             Without<PlayerTilesText>,
+            Without<PlayerBiomText>,
+        ),
+    >,
+
+    mut query_biom: Query<
+        &mut Text,
+        (
+            With<PlayerBiomText>,
+            Without<PlayerCordsText>,
+            Without<PlayerChunksText>,
+            Without<PlayerTilesText>,
+            Without<PlayerChunkTilesText>,
         ),
     >,
 ) {
@@ -396,6 +496,44 @@ fn player_cords_text_update_system(
     let (x, y) = world_to_chunks_tile((player_cords.translation.x, player_cords.translation.y));
     text.sections[1].value = format!("x: {}, y: {:?}", x, y).into();
     text.sections[1].style.color = Color::WHITE;
+
+
+    let (x, y) = world_to_tiles((player_cords.translation.x, player_cords.translation.y));
+    let chunk_ivec2 = IVec2::new(x, y);
+
+    let mut text = query_biom.single_mut();
+    text.sections[1].value = format!(": {:?}", get_biom(&chunk_ivec2)).into();
+    text.sections[1].style.color = Color::WHITE;
+
+
+}
+
+
+fn get_biom(tile_pos: &IVec2) -> BiomType {
+
+    let biom_seed: u32 = 502389457;
+    let perlin = Perlin::new(biom_seed);
+    let biom_point = [
+            tile_pos.x as f64 / (NOISE_SCALE * CHUNK_SIZE.x as f64),
+            tile_pos.y as f64 / (NOISE_SCALE * CHUNK_SIZE.y as f64),
+        ];
+        let value = perlin.get(biom_point);
+
+        if value > 0.0 {
+            return BiomType::GrassLand
+        } else {
+            return BiomType::Ocean
+        }
+
+        // if value > 0.75 {
+        //     return BiomType::Moutains;
+        // } else if value > -0.2 {
+        //     return BiomType::GrassLand;
+        // } else if value > -0.5 {
+        //     return BiomType::Islands;
+        // } else {
+        //     return BiomType::Ocean;
+        // }
 }
 
 fn setup_fps_counter(mut commands: Commands) {

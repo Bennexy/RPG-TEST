@@ -48,7 +48,7 @@ fn spawn_trees(
             for _ in 0..20 {
                 let x = global_rng.isize(-600..600) as f32;
                 let y = global_rng.isize(-600..600) as f32;
-                let texture = asset_server.load("tree2.png");
+                let texture = asset_server.load("images/tree2.png");
                 commands.spawn((
                     SpriteBundle {
                         texture,
