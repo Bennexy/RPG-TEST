@@ -1,14 +1,15 @@
+use std::time::Instant;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
-use bevy_ecs_tilemap::{map::TilemapRenderSettings, TilemapPlugin};
-
+use bevy_ecs_tilemap::{map::TilemapRenderSettings, TilemapPlugin, tiles::TilePos};
 use rand::{thread_rng, Rng};
 
-use crate::{consts::RENDER_CHUNK_SIZE, game_plugins::player::Player, zoom::WorldView};
 
-use super::{chunk_gen::spawn_chunks, utils::world_to_chunks};
+use crate::{consts::{RENDER_CHUNK_SIZE,CHUNK_SIZE}, game_plugins::player::Player, zoom::WorldView};
+
+use super::{chunk_gen::{spawn_chunks, TileType}, utils::world_to_chunks};
 
 #[derive(Resource)]
 pub struct RngJesus {
@@ -19,14 +20,14 @@ pub struct RngJesus {
 
 impl Default for RngJesus {
     fn default() -> Self {
-        // let mut rng = thread_rng();
-        // Self {
-        //     seed: rng.gen(),
-        //     seed2: rng.gen(),
-        //     biom_seed: rng.gen()
-        // };
+        let mut rng = thread_rng();
+        Self {
+            seed: rng.gen(),
+            seed2: rng.gen(),
+            biom_seed: rng.gen()
+        }
 
-        Self::new_fixed()
+        // Self::new_fixed()
 
     }
 }
@@ -41,12 +42,26 @@ impl RngJesus {
     }
 }
 
-#[derive(Component)]
-pub struct Tile;
 
+pub struct Tile {
+    tile_type: TileType,
+    pos: TilePos,
+    
+}
 
 #[derive(Component)]
 pub struct Chunk;
+//  {
+//     tiles: [[Tile ;CHUNK_SIZE.x as usize] ;CHUNK_SIZE.y as usize],
+//     position: IVec2,
+// }
+impl Chunk {
+    // fn new() -> Self {
+
+    // }
+}
+
+
 
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ChunkManager {
@@ -96,7 +111,6 @@ impl Plugin for WorldGenPlugin {
     }
 }
 
-
 pub fn spawn_chunks_around_camera(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -115,8 +129,12 @@ pub fn spawn_chunks_around_camera(
             let chunk = IVec2::new(x, y);
 
             if !chunk_manager.contains(&chunk) {
+                let start = Instant::now();
                 let entity = spawn_chunks(&mut commands, &asset_server, &seed, chunk);
                 chunk_manager.add_new_chunk(chunk, entity);
+                let duration = start.elapsed();
+
+                debug!("duration of chunk gen {} {} was {} seconds", x, y, duration.as_secs_f32());
             }
         }
     }

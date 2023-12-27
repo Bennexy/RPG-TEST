@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::{
     map::{TilemapId, TilemapTexture},
-    tiles::{TileBundle, TileColor, TilePos, TileStorage, TileTextureIndex},
+    tiles::{TileBundle, TilePos, TileStorage, TileTextureIndex},
     TilemapBundle,
 };
 use noise::{NoiseFn, Perlin};
@@ -12,7 +12,7 @@ use crate::consts::{CHUNK_SIZE, NOISE_SCALE, TILE_PIXEL_SIZE, TILE_SIZE};
 
 use super::{
     utils::{chunks_to_world, world_to_tiles},
-    world_gen::{RngJesus, Tile, TileMap},
+    world_gen::{RngJesus, TileMap, Chunk},
 };
 
 pub struct ImageHandles {
@@ -189,9 +189,9 @@ impl BiomTiles for RngJesus {
         
          if tile_perlin_value + biom_perlin_value > -0.45 {
             TileType::GrassLand
-        } else if tile_perlin_value + biom_perlin_value > -0.7 {
+        } else if tile_perlin_value + biom_perlin_value > -0.9 {
             TileType::Beach
-        } else if tile_perlin_value + biom_perlin_value > -1.2 {
+        } else if tile_perlin_value + biom_perlin_value > -1.6 {
             TileType::ShallowWater
         } else {
             TileType::DeepWater
@@ -302,7 +302,7 @@ pub fn spawn_chunks(
             transform: transform,
             ..Default::default()
         })
-        .insert(Tile);
+        .insert(Chunk);
 
     return tilemap_entity;
 }

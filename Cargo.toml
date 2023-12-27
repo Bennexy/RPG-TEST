@@ -15,9 +15,11 @@ opt-level = 3 # will compile packages as optimized as posible. -> takes longer a
 bevy = { version = "0.12", features = ["dynamic_linking"] } # dynamic linking to decrease compile time!
 bevy-inspector-egui = "0.21.0"
 bevy_turborand = "0.7.0"
-bevy_ecs_tilemap = { git = "https://github.com/divark/bevy_ecs_tilemap", branch = "0.12-fixes" }
+
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 noise = "0.8.2"
 strum = {version ="0.25.0", features = ["strum_macros", "derive"]}
 strum_macros = "0.25.3"
+
+bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap.git", branch = "main"}

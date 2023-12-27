@@ -30,19 +30,19 @@ impl WorldView {
     }
 
     pub fn zoom_in(&mut self) {
+        self.zoom_factor *= 0.5;
         if self.zoom_factor <= 1. {
             self.zoom_factor = 1.;
             return;
         }
-        self.zoom_factor *= 0.5;
     }
 
     pub fn zoom_out(&mut self) {
+        self.zoom_factor *= 2.0;
         if self.zoom_factor >= MAX_ZOOM {
             self.zoom_factor = MAX_ZOOM;
             return;
         }
-        self.zoom_factor *= 2.0;
     }
 }
 
