@@ -1,9 +1,9 @@
-use bevy::math::UVec2;
+use bevy::math::{UVec2, Vec2};
 use bevy_ecs_tilemap::map::TilemapTileSize;
 
 // const Mult: f32 = 2.;
 
-pub const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 32.0, y: 32.0 };
+pub const TILE_SIZE: Vec2 = Vec2 { x: 32.0, y: 32.0 };
 // the size of the provided images
 pub const TILE_PIXEL_SIZE: TilemapTileSize = TilemapTileSize { x: 32.0, y: 32.0 }; 
 // For this example, don't choose too large a chunk size.
