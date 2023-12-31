@@ -9,11 +9,6 @@ use super::tile::Tile;
 
 
 
-pub struct ChunkConfig {
-    chunk_dimentions: UVec2,
-
-    
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct Chunk(pub HashMap<(i32, i32), Tile>);
@@ -35,7 +30,7 @@ impl Chunk {
         let mut rng = thread_rng();
 
         let start = Instant::now();
-        for x in -size ..=size {
+        for x in -size..=size {
             for y in -size..=size {
                 let tile = Tile {
                     grid_position: Vec3 {
@@ -44,7 +39,7 @@ impl Chunk {
                         z: 0 as f32,
                     },
                     scale: 1.0,
-                    spite_index: rng.gen_range(0..spite_count)
+                    spite_index: spite_count
                 };
 
                 chunk.insert_tile(tile);

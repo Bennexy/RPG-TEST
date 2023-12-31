@@ -32,18 +32,18 @@ impl From<Tile> for Transform {
 
 impl From<&Tile> for Transform {
     fn from(tile: &Tile) -> Self {
-        let tile_size: Vec3 = Vec3 {
-            x: TILE_SIZE.x,
-            y: TILE_SIZE.y,
-            z: 1.0,
-        };
+        // let tile_size: Vec3 = Vec3 {
+        //     x: TILE_SIZE.x,
+        //     y: TILE_SIZE.y,
+        //     z: 1.0,
+        // };
 
-        let position = tile.grid_position * tile_size * tile.scale;
+        // let position = tile.grid_position * tile_size * tile.scale;
 
-        debug!("old: {}, new: {}", tile.grid_position, position);
+        // debug!("old: {}, new: {}", tile.grid_position, position);
 
         return Transform {
-            translation: position,
+            translation: tile.grid_position,
             scale: Vec3::splat(tile.scale),
             ..default()
         };
