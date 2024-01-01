@@ -1,6 +1,6 @@
 use std::{io::{BufWriter, BufReader, Write}, fs::File};
 
-use bevy::{math::{UVec2, Vec3}, utils::{HashMap, Instant}, log::info};
+use bevy::{math::{UVec2, Vec3}, utils::{HashMap, Instant}, log::{info, debug}};
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -52,17 +52,14 @@ impl Chunk {
         return chunk;
     }
 
-    pub fn save_to_file(&self) {
-        let file_path = "chunk.bin";
-
-
+    pub fn save_to_file(&self, file_path: &str) {
         let start = std::time::Instant::now();
         let mut writer = BufWriter::new(File::create(file_path).expect("Uh Oh"));
         bincode::serialize_into(&mut writer, self).unwrap();
         writer.flush().unwrap();
     
         let end1 = start.elapsed().as_secs_f64();
-        info!("writing to file took {} seconds", end1);
+        debug!("writing to file took {} seconds", end1);
     }
 
     pub fn load_from_file(file_path: &str) -> Option<Chunk> {
@@ -78,7 +75,7 @@ impl Chunk {
         let loaded: Chunk = bincode::deserialize_from(reader).unwrap();
         let end2 = start.elapsed().as_secs_f64();
     
-        info!("loading file took {} seconds", end2);
+        debug!("loading file took {} seconds", end2);
     
         return Some(loaded);
     }

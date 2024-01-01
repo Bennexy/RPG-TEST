@@ -16,4 +16,4 @@ pub const RENDER_CHUNK_SIZE: UVec2 = UVec2 {
 
 pub const NOISE_SCALE: f64 = 12.;
 
-pub const MAX_ZOOM: f32 = 16. * 1.;
+pub const MAX_ZOOM: f32 = 16. * 2.;
