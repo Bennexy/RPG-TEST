@@ -1,5 +1,3 @@
-use crate::consts::CHUNK_SIZE;
-use crate::game_plugins::player::Player;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
@@ -64,73 +62,6 @@ impl Plugin for GameUI {
     }
 }
 
-
-fn player_cords_text_update_system(
-    player_cords: Query<&Transform, With<Player>>,
-    mut query: Query<
-        &mut Text,
-        (
-            With<PlayerCordsText>,
-            Without<PlayerChunksText>,
-            Without<PlayerTilesText>,
-            Without<PlayerChunkTilesText>,
-            Without<PlayerBiomText>,
-        ),
-    >,
-    mut query_chunks: Query<
-        &mut Text,
-        (
-            With<PlayerChunksText>,
-            Without<PlayerCordsText>,
-            Without<PlayerTilesText>,
-            Without<PlayerChunkTilesText>,
-            Without<PlayerBiomText>,
-        ),
-    >,
-    mut query_tiles: Query<
-        &mut Text,
-        (
-            With<PlayerTilesText>,
-            Without<PlayerCordsText>,
-            Without<PlayerChunksText>,
-            Without<PlayerChunkTilesText>,
-            Without<PlayerBiomText>,
-        ),
-    >,
-
-    mut query_chunk_tiles: Query<
-        &mut Text,
-        (
-            With<PlayerChunkTilesText>,
-            Without<PlayerCordsText>,
-            Without<PlayerChunksText>,
-            Without<PlayerTilesText>,
-            Without<PlayerBiomText>,
-        ),
-    >,
-
-    mut query_biom: Query<
-        &mut Text,
-        (
-            With<PlayerBiomText>,
-            Without<PlayerCordsText>,
-            Without<PlayerChunksText>,
-            Without<PlayerTilesText>,
-            Without<PlayerChunkTilesText>,
-        ),
-    >,
-) {
-    let player_cords = player_cords.single();
-    let mut text = query.single_mut();
-    text.sections[1].value = format!(
-        "x: {:.2}, y: {:.2}",
-        player_cords.translation.x, player_cords.translation.y
-    )
-    .into();
-    text.sections[1].style.color = Color::WHITE;
-
-
-}
 
 
 fn setup_fps_counter(mut commands: Commands) {
@@ -252,43 +183,6 @@ fn fps_counter_showhide(
         ),
     >,
 
-    mut player_cords_root: Query<
-        &mut Visibility,
-        (
-            With<PlayerCordsRoot>,
-            Without<PlayerChunksRoot>,
-            Without<PlayerTilesRoot>,
-            Without<PlayerChunkTilesRoot>,
-        ),
-    >,
-    mut query_chunks: Query<
-        &mut Visibility,
-        (
-            With<PlayerChunksRoot>,
-            Without<PlayerCordsRoot>,
-            Without<PlayerTilesRoot>,
-            Without<PlayerChunkTilesRoot>,
-        ),
-    >,
-    mut query_tiles: Query<
-        &mut Visibility,
-        (
-            With<PlayerTilesRoot>,
-            Without<PlayerCordsRoot>,
-            Without<PlayerChunksRoot>,
-            Without<PlayerChunkTilesRoot>,
-        ),
-    >,
-
-    mut query_chunk_tiles: Query<
-        &mut Visibility,
-        (
-            With<PlayerChunkTilesRoot>,
-            Without<PlayerCordsRoot>,
-            Without<PlayerChunksRoot>,
-            Without<PlayerTilesRoot>,
-        ),
-    >,
     kbd: Res<Input<KeyCode>>,
 ) {
     if kbd.just_pressed(KeyCode::F12) {

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::zoom::WorldView;
+use crate::{zoom::WorldView, consts::TILE_SIZE};
 
 pub struct PlayerPlugin;
 
@@ -11,14 +11,40 @@ impl Plugin for PlayerPlugin {
     }
 }
 
+
+fn pixel_to_tile_pos(position: &Vec3) -> IVec2 {
+    let x_res = (position.x) / TILE_SIZE.x ;
+    let y_res = (position.y) / TILE_SIZE.y;
+
+    let x = if position.x.is_sign_positive() {
+        (x_res).ceil() as i32
+    } else {
+        (x_res).floor() as i32
+    };
+    let y = if position.y.is_sign_positive() {
+        (y_res).ceil() as i32
+    } else {
+        (y_res).floor() as i32
+    };
+
+
+    return IVec2 { x, y };
+    // let tile_pos = IVec2::new(
+    //     x: position.x / TILE_SIZE,
+    //     y: position.y / TILE_SIZE,
+    // )
+}
+
+
 #[derive(Component)]
 pub struct Player {
     pub speed: f32,
+    pub tile_position: IVec2
 }
 
 impl Default for Player {
     fn default() -> Self {
-        Player { speed: 100.0 }
+        Player { speed: 100.0, tile_position: IVec2::splat(0) }
     }
 }
 
@@ -42,12 +68,12 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 pub fn character_movement(
-    mut player: Query<(&mut Transform, &Player), (With<Player>, Without<WorldView>)>,
+    mut player: Query<(&mut Transform, &mut Player), (With<Player>, Without<WorldView>)>,
     mut world_view: Query<&mut Transform, (With<WorldView>, Without<Player>)>,
     input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let (mut tansform_player, player) = player.single_mut();
+    let (mut tansform_player, mut player) = player.single_mut();
     let mut tansform_world_view = world_view.single_mut();
 
     // for wv in &mut world_view {
@@ -94,4 +120,7 @@ pub fn character_movement(
     tansform_player.translation.x += move_x;
     tansform_world_view.translation.y += move_y;
     tansform_world_view.translation.x += move_x;
+
+
+    player.tile_position = pixel_to_tile_pos(&tansform_player.translation);
 }
