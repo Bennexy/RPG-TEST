@@ -1,12 +1,16 @@
 use bevy::{
     asset::{AssetServer, Assets},
     ecs::system::{Res, ResMut},
+    log::{debug, info},
     math::{IVec2, IVec3, Vec2, Vec3},
-    sprite::TextureAtlas, log::{debug, info},
+    sprite::TextureAtlas,
 };
 
 use crate::{
-    consts::{CHUNK_SIZE, TILE_SIZE},
+    consts::{
+        CHUNK_SIZE, SPITE_SHEET_COLUMNS, SPITE_SHEET_OFFSET, SPITE_SHEET_PADDING, SPITE_SHEET_ROWS,
+        TILE_SIZE,
+    },
     game_plugins::world::chunks::ChunkConfig,
 };
 
@@ -41,7 +45,6 @@ pub fn pixel_to_tile_pos(position: &Vec3) -> IVec2 {
 pub fn pixel_to_chunk_pos(position: &Vec3, config: &ChunkConfig) -> IVec2 {
     let x_res = (position.x) / TILE_SIZE.x / config.chunk_size as f32;
     let y_res = (position.y) / TILE_SIZE.y / config.chunk_size as f32;
-
 
     let x = if position.x.is_sign_positive() {
         (x_res).ceil() as i32
@@ -90,14 +93,14 @@ pub fn load_texture_atlas_handel(
     asset_server: &Res<AssetServer>,
     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
 ) -> bevy::prelude::Handle<TextureAtlas> {
-    let texture_handle = asset_server.load("tiles/sprite-sheet.png");
+    let texture_handle = asset_server.load("tiles/Sprite-0001-sheet.png");
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,
         TILE_SIZE,
-        2,
-        2,
-        Some(Vec2 { x: 2.0, y: 2.0 }),
-        None,
+        SPITE_SHEET_COLUMNS,
+        SPITE_SHEET_ROWS,
+        Some(SPITE_SHEET_PADDING),
+        Some(SPITE_SHEET_OFFSET),
     );
     let texture_atlas_handle: bevy::prelude::Handle<TextureAtlas> =
         texture_atlases.add(texture_atlas);

@@ -17,7 +17,7 @@ pub struct WorldView {
 
 impl Default for WorldView {
     fn default() -> Self {
-        Self { zoom_factor: 1.0 }
+        Self { zoom_factor: 64.0 }
     }
 }
 

@@ -9,18 +9,33 @@ use std::{
 
 use bevy::prelude::*;
 use bincode;
+use noise::{NoiseFn, Perlin};
+use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    consts::{CHUNK_SIZE, RENDER_DISTANCE, TILE_SIZE},
+    consts::{CHUNK_SIZE, NOISE_SCALE, RENDER_DISTANCE, SPITE_SHEET_COLUMNS, TILE_SIZE},
     game_plugins::{
         player::Player,
-        world::helpers::{
-            ivec3_into_ivec2, load_texture_atlas_handel, pixel_to_chunk_pos, pixel_to_tile_pos,
-            tile_to_chunk_pos,
+        world::{
+            helpers::{
+                ivec3_into_ivec2, load_texture_atlas_handel, pixel_to_chunk_pos, pixel_to_tile_pos,
+                tile_to_chunk_pos,
+            },
+            tile::TileType,
         },
     },
 };
+
+impl Default for ChunkConfig {
+    fn default() -> Self {
+        Self {
+            seed: 6439167,
+            render_distance: 8,
+            chunk_size: 32,
+        }
+    }
+}
 
 pub struct ChunkWorldGen;
 
@@ -33,7 +48,7 @@ impl Plugin for ChunkWorldGen {
                 Update,
                 (
                     detect_player_chunk_change.before(draw_chunks_around_player),
-                    draw_chunks_around_player
+                    draw_chunks_around_player,
                 ),
             );
     }
@@ -49,6 +64,34 @@ pub struct Tile {
     spite_index: usize,
 }
 
+impl Tile {
+    fn get_translation(
+        tile_position_in_chunk: &IVec2,
+        config: &ChunkConfig,
+        chunk_pos: &IVec2,
+    ) -> Vec3 {
+        let translation = Vec3 {
+            x: (tile_position_in_chunk.x as f32 * TILE_SIZE.x + TILE_SIZE.x / 2.0)
+                + (chunk_pos.x as f32 * config.chunk_size as f32 * TILE_SIZE.x),
+            y: (tile_position_in_chunk.y as f32 * TILE_SIZE.y + TILE_SIZE.y / 2.0)
+                + (chunk_pos.y as f32 * config.chunk_size as f32 * TILE_SIZE.x),
+            z: 0.0,
+        };
+
+        return translation;
+    }
+
+    fn get_global_tile_position(
+        tile_position_in_chunk: &IVec2,
+        config: &ChunkConfig,
+        chunk_pos: &IVec2,
+    ) -> IVec2 {
+
+        let trans = Tile::get_translation(tile_position_in_chunk, config, chunk_pos);
+        return pixel_to_tile_pos(&trans);
+    }
+}
+
 #[derive(Component, Serialize, Deserialize, Debug)]
 pub struct Chunk {
     position: IVec2,
@@ -56,24 +99,49 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    fn generate_new_chunk(
-        config: &ChunkConfig,
-        commands: &mut Commands,
-        spite_index: usize,
-    ) -> HashMap<IVec2, Tile> {
+    fn generate_new_chunk(chunk_pos: &IVec2, config: &ChunkConfig) -> HashMap<IVec2, Tile> {
         let mut tiles: HashMap<IVec2, Tile> =
             HashMap::with_capacity(config.chunk_size.pow(2) as usize);
 
+        let mut rng = thread_rng();
+        let perlin = Perlin::new(config.seed);
+
         for x in 0..config.chunk_size as i32 {
             for y in 0..config.chunk_size as i32 {
-                let pos = IVec2::new(x, y);
+                let pos: IVec2 = IVec2::new(x, y);
+                let perlin_pos_vec3 = Tile::get_global_tile_position(&pos, config, chunk_pos);
+
+
+                let perlin_chunk_pos = [
+                    (chunk_pos.x as f64 + 0.1) / NOISE_SCALE, (chunk_pos.y as f64 + 0.1) / NOISE_SCALE
+                ];
+                let perlin_chunk_offset = perlin.get(perlin_chunk_pos);
+                // info!("{:?}", perlin_pos);
+                let perlin_pos = [
+                    ((perlin_pos_vec3.x as f64) / NOISE_SCALE ) + perlin_chunk_offset,
+                    ((perlin_pos_vec3.y as f64) / NOISE_SCALE ) + perlin_chunk_offset,
+                ];
+
+                let perlin_value = perlin.get(perlin_pos) /perlin_chunk_offset+ perlin_chunk_offset * 2.0;
+
+                let si = if perlin_value >= -0.4  {
+                    TileType::GRASS
+                } else {
+                    TileType::WATER
+                };
+                debug!("{:?}, {:?}, {:?}, {:?}", si, perlin_pos, perlin_value, perlin_pos_vec3);
+
+                let si =
+                    (si.to_usize() * SPITE_SHEET_COLUMNS) + rng.gen_range(0..SPITE_SHEET_COLUMNS);
+
                 let tile = Tile {
                     position: IVec3 { x: x, y: y, z: 0 },
                     scale: 1.0,
-                    spite_index: spite_index,
+                    spite_index: si,
                 };
 
                 tiles.insert(pos, tile);
+                // info!(si);
             }
         }
 
@@ -100,13 +168,7 @@ impl Chunk {
         };
 
         for (pos, tile) in raw_data.iter() {
-            let translation = Vec3 {
-                x: (pos.x as f32 * TILE_SIZE.x + TILE_SIZE.x / 2.0)
-                    + (chunk_pos.x as f32 * config.chunk_size as f32 * TILE_SIZE.x),
-                y: (pos.y as f32 * TILE_SIZE.y + TILE_SIZE.y / 2.0)
-                    + (chunk_pos.y as f32 * config.chunk_size as f32 * TILE_SIZE.x),
-                z: 0.0,
-            };
+            let translation = Tile::get_translation(pos, config, &selfer.position);
 
             let transform = Transform {
                 translation: translation,
@@ -132,7 +194,6 @@ impl Chunk {
     }
 
     fn get_file_string(chunk_pos: &IVec2, config: &ChunkConfig) -> String {
-
         let file_string = format!(
             "save/chunk_{}_{}_{}.bin",
             config.chunk_size, chunk_pos.x, chunk_pos.y
@@ -142,7 +203,6 @@ impl Chunk {
     }
 
     fn load(chunk_pos: IVec2, config: &ChunkConfig) -> Option<HashMap<IVec2, Tile>> {
-
         let fp = Self::get_file_string(&chunk_pos, config);
         let file_path = Path::new(&fp);
         if !file_path.exists() {
@@ -176,16 +236,9 @@ impl Chunk {
 pub struct ChunkConfig {
     pub render_distance: u32,
     pub chunk_size: u32,
+    pub seed: u32,
 }
 
-impl Default for ChunkConfig {
-    fn default() -> Self {
-        Self {
-            render_distance: 4,
-            chunk_size: 32,
-        }
-    }
-}
 
 #[derive(Resource, Serialize, Deserialize, Debug)]
 pub struct ChunkManager {
@@ -257,7 +310,7 @@ fn draw_chunks_around_player(
         return;
     }
     ev_player_chunk_change.clear(); // only run once
-    
+
     debug!("tile_change");
 
     let texture_atlas_handle: Handle<TextureAtlas> =
@@ -267,26 +320,23 @@ fn draw_chunks_around_player(
 
     let start = Instant::now();
     debug!("render_ranges: {:?} {:?}", range_x, range_y);
-    let mut spite_index_mut: usize = 0;
+
     for x in range_x {
         for y in range_y.clone() {
             let chunk_pos = IVec2::new(x, y);
             if chunk_manager.chunks.contains_key(&chunk_pos) {
                 continue;
             }
-            spite_index_mut += 1;
-            if spite_index_mut >= 4 {
-                spite_index_mut = 0;
-            }
-            debug!("chunk_pos: {:?} {spite_index_mut}", chunk_pos);
-
-            let spite_index = spite_index_mut.clone();
 
             let chunk_data = match Chunk::load(chunk_pos, &chunk_manager.config) {
-                Some(chunk) => {debug!("loaded chunk {}", chunk_pos); chunk},
+                Some(chunk) => {
+                    debug!("loaded chunk {}", chunk_pos);
+                    chunk
+                }
                 None => {
+                    let chunk = Chunk::generate_new_chunk(&chunk_pos, &chunk_manager.config);
                     debug!("generated chunk {}", chunk_pos);
-                    Chunk::generate_new_chunk(&chunk_manager.config, &mut commands, spite_index)
+                    chunk
                 }
             };
 
@@ -313,7 +363,7 @@ fn draw_chunks_around_player(
         let value_should_be_removed = !range_x.contains(&k.x) || !range_y.contains(&k.y);
 
         if value_should_be_removed {
-            chunk.save(&chunk_config);
+            // chunk.save(&chunk_config);
             chunk.despawn_chunk(&mut commands);
             debug!("chunk: {:?} found to remove", k);
         }

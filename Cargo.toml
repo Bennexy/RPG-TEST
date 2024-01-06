@@ -19,7 +19,7 @@ bevy_turborand = "0.7.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 noise = "0.8.2"
-strum = {version ="0.25.0", features = ["strum_macros", "derive"]}
+strum = { version = "0.25.0", features = ["strum_macros", "derive"] }
 strum_macros = "0.25.3"
 
 bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap.git", branch = "main"}

@@ -28,7 +28,6 @@ use rand::{thread_rng, Rng};
 use ui::GameUI;
 use zoom::ScaleableWorldViewPlugin;
 
-use crate::consts::TILE_SIZE;
 
 mod consts;
 
@@ -49,9 +48,9 @@ fn main() {
                 })
                 .build(),
         )
-        .add_plugins(
-            WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F2)),
-        )
+        // .add_plugins(
+        //     WorldInspectorPlugin::default().run_if(input_toggle_active(false, KeyCode::F2)),
+        // )
         .add_plugins((
             ScaleableWorldViewPlugin,
             TreePlugin,
