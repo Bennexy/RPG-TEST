@@ -22,7 +22,7 @@ use crate::{
                 ivec3_into_ivec2, load_texture_atlas_handel, pixel_to_chunk_pos, pixel_to_tile_pos,
                 tile_to_chunk_pos,
             },
-            tile::TileType,
+            type_tiles::TileType, world_gen::get_tile_type_for_pos,
         },
     },
 };
@@ -30,9 +30,9 @@ use crate::{
 impl Default for ChunkConfig {
     fn default() -> Self {
         Self {
-            seed: 6439167,
+            seeds: Seeds::default(),
             render_distance: 8,
-            chunk_size: 32,
+            chunk_size: 16,
         }
     }
 }
@@ -65,6 +65,8 @@ pub struct Tile {
 }
 
 impl Tile {
+    // Gets the pixel position on a global map x,y,z
+    // This is the position to render the tile at.
     fn get_translation(
         tile_position_in_chunk: &IVec2,
         config: &ChunkConfig,
@@ -81,16 +83,17 @@ impl Tile {
         return translation;
     }
 
+    // Gets the tile position on a gloabal map x,y
     fn get_global_tile_position(
         tile_position_in_chunk: &IVec2,
         config: &ChunkConfig,
         chunk_pos: &IVec2,
     ) -> IVec2 {
-
         let trans = Tile::get_translation(tile_position_in_chunk, config, chunk_pos);
         return pixel_to_tile_pos(&trans);
     }
 }
+
 
 #[derive(Component, Serialize, Deserialize, Debug)]
 pub struct Chunk {
@@ -104,33 +107,34 @@ impl Chunk {
             HashMap::with_capacity(config.chunk_size.pow(2) as usize);
 
         let mut rng = thread_rng();
-        let perlin = Perlin::new(config.seed);
+        // let perlin = Perlin::new(config.seed);
 
         for x in 0..config.chunk_size as i32 {
             for y in 0..config.chunk_size as i32 {
                 let pos: IVec2 = IVec2::new(x, y);
-                let perlin_pos_vec3 = Tile::get_global_tile_position(&pos, config, chunk_pos);
+                let perlin_pos_vec2 = Tile::get_global_tile_position(&pos, config, chunk_pos);
 
+                // let perlin_chunk_pos = [
+                //     (chunk_pos.x as f64 + 0.1) / NOISE_SCALE,
+                //     (chunk_pos.y as f64 + 0.1) / NOISE_SCALE,
+                // ];
+                // let perlin_chunk_offset = perlin.get(perlin_chunk_pos);
+                // // info!("{:?}", perlin_pos);
+                // let perlin_pos = [
+                //     ((perlin_pos_vec2.x as f64) / NOISE_SCALE) + perlin_chunk_offset,
+                //     ((perlin_pos_vec2.y as f64) / NOISE_SCALE) + perlin_chunk_offset,
+                // ];
 
-                let perlin_chunk_pos = [
-                    (chunk_pos.x as f64 + 0.1) / NOISE_SCALE, (chunk_pos.y as f64 + 0.1) / NOISE_SCALE
-                ];
-                let perlin_chunk_offset = perlin.get(perlin_chunk_pos);
-                // info!("{:?}", perlin_pos);
-                let perlin_pos = [
-                    ((perlin_pos_vec3.x as f64) / NOISE_SCALE ) + perlin_chunk_offset,
-                    ((perlin_pos_vec3.y as f64) / NOISE_SCALE ) + perlin_chunk_offset,
-                ];
+                // let perlin_value =
+                //     perlin.get(perlin_pos) / perlin_chunk_offset + perlin_chunk_offset * 2.0;
 
-                let perlin_value = perlin.get(perlin_pos) /perlin_chunk_offset+ perlin_chunk_offset * 2.0;
-
-                let si = if perlin_value >= -0.4  {
-                    TileType::GRASS
-                } else {
-                    TileType::WATER
-                };
-                debug!("{:?}, {:?}, {:?}, {:?}", si, perlin_pos, perlin_value, perlin_pos_vec3);
-
+                let si = get_tile_type_for_pos(&perlin_pos_vec2, &config);
+                // debug!(
+                //     "{:?}, {:?}, {:?}, {:?}",
+                //     si, perlin_pos, perlin_value, perlin_pos_vec2
+                // );
+                
+                
                 let si =
                     (si.to_usize() * SPITE_SHEET_COLUMNS) + rng.gen_range(0..SPITE_SHEET_COLUMNS);
 
@@ -233,12 +237,26 @@ impl Chunk {
 }
 
 #[derive(Component, Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct Seeds {
+    pub biom: u32,
+    pub tiles: u32,
+}
+
+impl Default for Seeds {
+    fn default() -> Self {
+        return Self {
+            biom: 3654,
+            tiles: 97123,
+        };
+    }
+}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct ChunkConfig {
     pub render_distance: u32,
     pub chunk_size: u32,
-    pub seed: u32,
+    pub seeds: Seeds,
 }
-
 
 #[derive(Resource, Serialize, Deserialize, Debug)]
 pub struct ChunkManager {
